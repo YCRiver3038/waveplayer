@@ -162,11 +162,7 @@ class GaplessLooper : public WaveFile {
 };
 
 int main(int argc, char* argv[]) {
-#ifdef __linux__
-    struct sigaction sa = {};
-    sa.sa_handler = kbiHandler;
-    sigaction(SIGINT, &sa, nullptr);
-#elif __APPLE__
+#if defined(__linux__) || defined(__APPLE__)
     struct sigaction sa = {};
     sa.sa_handler = kbiHandler;
     sigaction(SIGINT, &sa, nullptr);
