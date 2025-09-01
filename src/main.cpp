@@ -4,6 +4,8 @@
 #include "signal.h"
 #include "stdint.h"
 
+#include "math.h"
+
 #include <string>
 #include <atomic>
 
@@ -18,13 +20,94 @@ void kbiHandler(int signo) {
     KeyboardInterrupt.store(true);
 }
 
-void printRatBar(int fillLength, int maxLength,
+template <typename DTYPE>
+void printRatBar(DTYPE fillLength, DTYPE maxLength,
                  int charLength=10, bool withPercent=false,
                  char fillChar='#', char emptyChar='_', bool colored=false) {
     float fillRatio = 0.0;
     int fillCount = 0;
     fillRatio = (float)fillLength / (float)maxLength;
     fillCount = (int)(fillRatio * (float)charLength);
+    bool halfMarked = false;
+    bool fourFifthMarked = false;
+    bool almostFullMarked = false;
+    for (int ctr = 0; ctr < fillCount; ctr++) {
+        if (colored) {
+            if ((ctr < (charLength/2)) && !halfMarked) {
+                printf("\x1b[041m\x1b[097m");
+                halfMarked = true;
+            }
+            if (((charLength/2) <= ctr) && (ctr < ((4*charLength)/5)) && !fourFifthMarked) {
+                printf("\x1b[0m");
+                printf("\x1b[043m\x1b[097m");
+                fourFifthMarked = true;
+            }
+            if ( (((4*charLength)/5) <= ctr) && !almostFullMarked ) {
+                printf("\x1b[0m");
+                printf("\x1b[042m\x1b[097m");
+                almostFullMarked = true;
+            }
+        }
+        putchar(fillChar);
+    }
+    if (colored) {
+        printf("\x1b[0m");
+    }
+    for (int ctr = 0; ctr < (charLength - fillCount); ctr++) {
+        putchar(emptyChar);
+    }
+    if (withPercent) {
+        printf("|%5.1f%%", fillRatio*100.0);
+    }
+}
+
+void printRatBar(float fillLength, float maxLength,
+                 int charLength=10, bool withPercent=false,
+                 char fillChar='#', char emptyChar='_', bool colored=false) {
+    float fillRatio = 0.0;
+    int fillCount = 0;
+    fillRatio = fillLength / maxLength;
+    fillCount = (int)(fillRatio * charLength);
+    bool halfMarked = false;
+    bool fourFifthMarked = false;
+    bool almostFullMarked = false;
+    for (int ctr = 0; ctr < fillCount; ctr++) {
+        if (colored) {
+            if ((ctr < (charLength/2)) && !halfMarked) {
+                printf("\x1b[041m\x1b[097m");
+                halfMarked = true;
+            }
+            if (((charLength/2) <= ctr) && (ctr < ((4*charLength)/5)) && !fourFifthMarked) {
+                printf("\x1b[0m");
+                printf("\x1b[043m\x1b[097m");
+                fourFifthMarked = true;
+            }
+            if ( (((4*charLength)/5) <= ctr) && !almostFullMarked ) {
+                printf("\x1b[0m");
+                printf("\x1b[042m\x1b[097m");
+                almostFullMarked = true;
+            }
+        }
+        putchar(fillChar);
+    }
+    if (colored) {
+        printf("\x1b[0m");
+    }
+    for (int ctr = 0; ctr < (charLength - fillCount); ctr++) {
+        putchar(emptyChar);
+    }
+    if (withPercent) {
+        printf("|%5.1f%%", fillRatio*100.0);
+    }
+}
+
+void printRatBar(double fillLength, double maxLength,
+                 int charLength=10, bool withPercent=false,
+                 char fillChar='#', char emptyChar='_', bool colored=false) {
+    float fillRatio = 0.0;
+    int fillCount = 0;
+    fillRatio = fillLength / maxLength;
+    fillCount = (int)(fillRatio * charLength);
     bool halfMarked = false;
     bool fourFifthMarked = false;
     bool almostFullMarked = false;
@@ -184,7 +267,6 @@ int main(int argc, char* argv[]) {
         printf("Cannot allocate read buffer\n");
         return -1;
     }
-
     for (uint32_t ctr=0; ctr<(ioChunkLength*wf1.getChannels()); ctr++) {
         aData[ctr].f32 = 0.0;
     }
@@ -209,20 +291,40 @@ int main(int argc, char* argv[]) {
         deint[ctr] = new AudioData[ioChunkLength];
     }
 
+    float wPeak = 0;
+    float dbwPeak = 0;
+    float wABS = 0;
     while (!KeyboardInterrupt.load()) {
-        puts("\r\033[2A");
+        puts("\r\033[3A");
+        wPeak = 0;
         readLength = wf1.prepareFrame(&(aData[0].f32), ioChunkLength, noLoop);
         AudioManipulator::deinterleave(aData, deint, ioChunkLength);
         AudioManipulator::interleave(deint, aData, ioChunkLength);
+        // get peak
+        for (uint32_t ctr=0; ctr<(ioChunkLength*wf1.getChannels()); ctr++) {
+            wABS = aData[ctr].f32;
+            if (wABS < 0) {
+                wABS *= -1;
+            }
+            if (wPeak < wABS) {
+                wPeak = wABS;
+            }
+        }
         if (noLoop && (readLength < ioChunkLength)) {
             memset((float*)&(aData[readLength*wf1.getChannels()].f32),
                    0,
                    sizeof(float)*(ioChunkLength-readLength)*wf1.getChannels());
         }
+        // print buffer status
         printRatBar(aOut.getRbStoredChunkLength(), aOut.getRbChunkLength(), barLength, true, '*', ' ', true);
         printf("|%6d|%6lu|%9lu|%9lu|\n", readLength, aOut.getTxCbFrameCount(), aOut.getRbStoredLength(), aOut.getRbLength());
+        // print read position
         printRatBar(wf1.getPosition(), wf1.getDataSize(), barLength, false, '-', ' ');
-        printf("|%6.1f / %6.1f", wf1.getPositionInSeconds(), wf1.getLengthInSeconds());
+        printf("|%6.1f / %6.1f\n", wf1.getPositionInSeconds(), wf1.getLengthInSeconds());
+        // print peak
+        dbwPeak = 20*log10(wPeak);
+        printRatBar(wPeak, 1.0f, barLength, false, '>', ' ');
+        printf("|%6.1f", dbwPeak);
         fflush(stdout);
         aOut.blockingWrite(aData, readLength, 1000);
         if (noLoop && (readLength < ioChunkLength)) {
@@ -231,17 +333,17 @@ int main(int argc, char* argv[]) {
     }
     KeyboardInterrupt.store(false);
     while (aOut.wait(50) != 0) {
-        puts("\r\033[2A");
+        puts("\r\033[3A");
         printRatBar(aOut.getRbStoredChunkLength(), aOut.getRbChunkLength(), barLength, true, '*', ' ', true);
         printf("|%6d|%6lu|%9lu|%9lu|\n", readLength, aOut.getTxCbFrameCount(), aOut.getRbStoredLength(), aOut.getRbLength());
         printRatBar(wf1.getPosition(), wf1.getDataSize(), barLength, false, '-', ' ');
-        printf("|%6.1f / %6.1f", wf1.getPositionInSeconds(), wf1.getLengthInSeconds());
+        printf("|%6.1f / %6.1f\n", wf1.getPositionInSeconds(), wf1.getLengthInSeconds());
         fflush(stdout);
         if (KeyboardInterrupt.load()) {
             break;
         }
     }
-    puts("\r\033[2A");
+    puts("\r\033[3A");
     printRatBar(aOut.getRbStoredChunkLength(), aOut.getRbChunkLength(), barLength, true, '*', ' ', true);
     printf("|%6d|%6lu|%9lu|%9lu|\n", readLength, aOut.getTxCbFrameCount(), aOut.getRbStoredLength(), aOut.getRbLength());
     printRatBar(wf1.getPosition(), wf1.getDataSize(), barLength, false, '-', ' ');
