@@ -178,6 +178,22 @@ void showHelp() {
            "--noloop                     : Don't loop file if set.\n");
 }
 
+void displayInformation(AudioManipulator& aOut, GaplessLooper& wf,
+                        int readLength, int barLength, float wPeak) {
+    float dbwPeak = 0.0;
+    puts("\r\033[3A");
+    printRatBar(aOut.getRbStoredChunkLength(), aOut.getRbChunkLength(), barLength, true, '*', ' ', true);
+    printf("|%6d|%6lu|%9lu|%9lu|\n", readLength, aOut.getTxCbFrameCount(), aOut.getRbStoredLength(), aOut.getRbLength());
+    // print read position
+    printRatBar(wf.getPosition(), wf.getDataSize(), barLength, false, '-', ' ');
+    printf("|%6.1f / %6.1f\n", wf.getPositionInSeconds(), wf.getLengthInSeconds());
+    // print peak
+    dbwPeak = 20*log10(wPeak);
+    printRatBar(wPeak, 1.0f, barLength, false, '>', ' ');
+    printf("|%6.1f", dbwPeak);
+    fflush(stdout);
+}
+
 int main(int argc, char* argv[]) {
 #if defined(__linux__) || defined(__APPLE__)
     struct sigaction sa = {};
@@ -196,13 +212,18 @@ int main(int argc, char* argv[]) {
         {"chunklength", required_argument, 0, 2001},
         {"file", required_argument, 0, 2002},
         {"rblength", required_argument, 0, 2003},
+#if defined(__linux__) || defined(__APPLE__)
+        {"directory", required_argument, 0, 9001},
+#endif
         {0, 0, 0, 0}
     };
     int getoptStatus = 0;
     int optionIndex = 0;
     bool loadonly = false;
     bool noLoop = false;
+    bool dirMode = false;
     std::string fileName;
+    std::string dirName;
     uint32_t oDeviceIndex = 0;
     uint32_t ioChunkLength = 1024;
     uint32_t ioRBLength = ioChunkLength*8;
@@ -250,11 +271,18 @@ int main(int argc, char* argv[]) {
                     return -1;
                 }
                 break;
+#if defined(__linux__) || defined(__APPLE__)
+            case 9001:
+                dirName.assign(optarg);
+                dirMode = true;
+                break;
+#endif
             default:
                 break;
         }
     } while (getoptStatus != -1);
 
+    GaplessLooper* wfdir1;
     GaplessLooper wf1(fileName);
     if (!wf1.isFileOpened()) {
         printf("Cannot open file: %s\n", fileName.c_str());
@@ -305,10 +333,9 @@ int main(int argc, char* argv[]) {
     }
 
     float wPeak = 0;
-    float dbwPeak = 0;
     float wABS = 0;
+    printf("File: %s\n\n\n\n", fileName.c_str());//ファイル名の表示: 下の '\033[3A'で3行分上書きされるため改行を追加
     while (!KeyboardInterrupt.load()) {
-        puts("\r\033[3A");
         wPeak = 0;
         readLength = wf1.prepareFrame(&(aData[0].f32), ioChunkLength, noLoop);
         AudioManipulator::deinterleave(aData, deint, ioChunkLength);
@@ -328,17 +355,11 @@ int main(int argc, char* argv[]) {
                    0,
                    sizeof(float)*(ioChunkLength-readLength)*wf1.getChannels());
         }
-        // print buffer status
-        printRatBar(aOut.getRbStoredChunkLength(), aOut.getRbChunkLength(), barLength, true, '*', ' ', true);
-        printf("|%6d|%6lu|%9lu|%9lu|\n", readLength, aOut.getTxCbFrameCount(), aOut.getRbStoredLength(), aOut.getRbLength());
-        // print read position
-        printRatBar(wf1.getPosition(), wf1.getDataSize(), barLength, false, '-', ' ');
-        printf("|%6.1f / %6.1f\n", wf1.getPositionInSeconds(), wf1.getLengthInSeconds());
-        // print peak
-        dbwPeak = 20*log10(wPeak);
-        printRatBar(wPeak, 1.0f, barLength, false, '>', ' ');
-        printf("|%6.1f", dbwPeak);
-        fflush(stdout);
+
+        // print information
+        displayInformation(aOut, wf1, readLength, barLength, wPeak);
+
+        // write audio data to audio output
         aOut.blockingWrite(aData, readLength, 1000);
         if (noLoop && (readLength < ioChunkLength)) {
             break;
@@ -346,21 +367,12 @@ int main(int argc, char* argv[]) {
     }
     KeyboardInterrupt.store(false);
     while (aOut.wait(50) != 0) {
-        puts("\r\033[3A");
-        printRatBar(aOut.getRbStoredChunkLength(), aOut.getRbChunkLength(), barLength, true, '*', ' ', true);
-        printf("|%6d|%6lu|%9lu|%9lu|\n", readLength, aOut.getTxCbFrameCount(), aOut.getRbStoredLength(), aOut.getRbLength());
-        printRatBar(wf1.getPosition(), wf1.getDataSize(), barLength, false, '-', ' ');
-        printf("|%6.1f / %6.1f\n", wf1.getPositionInSeconds(), wf1.getLengthInSeconds());
-        fflush(stdout);
+        displayInformation(aOut, wf1, readLength, barLength, wPeak);
         if (KeyboardInterrupt.load()) {
             break;
         }
     }
-    puts("\r\033[3A");
-    printRatBar(aOut.getRbStoredChunkLength(), aOut.getRbChunkLength(), barLength, true, '*', ' ', true);
-    printf("|%6d|%6lu|%9lu|%9lu|\n", readLength, aOut.getTxCbFrameCount(), aOut.getRbStoredLength(), aOut.getRbLength());
-    printRatBar(wf1.getPosition(), wf1.getDataSize(), barLength, false, '-', ' ');
-    printf("|%6.1f / %6.1f", wf1.getPositionInSeconds(), wf1.getLengthInSeconds());
+    displayInformation(aOut, wf1, readLength, barLength, wPeak);
     puts("\n");
     if (KeyboardInterrupt.load()) {
         printf("\nKeyboardInterrupt.\n");
