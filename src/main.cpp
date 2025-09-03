@@ -390,6 +390,9 @@ int main(int argc, char* argv[]) {
                     memset((float*)&(aData[readLength*curWF->getChannels()].f32),
                         0,
                         sizeof(float)*(ioChunkLength-readLength)*curWF->getChannels());
+                    if (!noLoop) {
+                        readLength = ioChunkLength;
+                    }
                 }
             } else {
                 memset((float*)&(aData[readLength*curWF->getChannels()].f32),
@@ -422,7 +425,9 @@ int main(int argc, char* argv[]) {
             if (noLoop) {
                 break;
             } else {
+                delete curWF;
                 playedFileCount = 0;
+                curWF = new GaplessLooper(paths.at(playedFileCount), verbose);
             }
         }
     }
