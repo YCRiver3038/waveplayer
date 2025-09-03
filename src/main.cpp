@@ -380,16 +380,21 @@ int main(int argc, char* argv[]) {
             if (dirMode) {
                 prevWF = curWF;
                 playedFileCount++;
-                if (dirMode && (playedFileCount < paths.size())) {
+                delete curWF;
+                if (playedFileCount < paths.size()) {
                     printf("\nFile: %s\n", paths.at(playedFileCount).c_str());
                     curWF = new GaplessLooper(paths.at(playedFileCount), verbose);
+                    curWF->prepareFrame(&(aData[readLength*prevWF->getChannels()].f32), ioChunkLength-readLength, true);
+                    readLength = ioChunkLength;
+                } else {
+                    memset((float*)&(aData[readLength*prevWF->getChannels()].f32),
+                        0,
+                        sizeof(float)*(ioChunkLength-readLength)*prevWF->getChannels());
                 }
-                curWF->prepareFrame(&(aData[readLength*prevWF->getChannels()].f32), ioChunkLength-readLength, true);
-                readLength = ioChunkLength;
-            } else if (noLoop) {
+            } else {
                 memset((float*)&(aData[readLength*prevWF->getChannels()].f32),
-                    0,
-                    sizeof(float)*(ioChunkLength-readLength)*prevWF->getChannels());
+                        0,
+                        sizeof(float)*(ioChunkLength-readLength)*prevWF->getChannels());
             }
         }
         //AudioManipulator::deinterleave(aData, deint, ioChunkLength);
@@ -409,8 +414,16 @@ int main(int argc, char* argv[]) {
         displayInformation(aOut, *curWF, readLength, barLength, wPeak);
         // write audio data to audio output
         aOut.blockingWrite(aData, readLength, 1000);
-        if (noLoop && (readLength < ioChunkLength)) {
+
+        if (readLength < ioChunkLength) {
             break;
+        }
+        if (dirMode && (playedFileCount >= paths.size())) {
+            if (noLoop) {
+                break;
+            } else {
+                playedFileCount = 0;
+            }
         }
     }
     KeyboardInterrupt.store(false);
