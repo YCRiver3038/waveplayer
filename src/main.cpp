@@ -10,6 +10,7 @@
 #include <atomic>
 #include <vector>
 #include <filesystem>
+#include <algorithm>
 
 //#include "nlohmann/json.hpp"
 
@@ -145,7 +146,7 @@ void printRatBar(double fillLength, double maxLength,
 
 class GaplessLooper : public WaveFile {
     public:
-        GaplessLooper(std::string fileName): WaveFile(fileName, "r") {}
+        GaplessLooper(std::string fileName, bool verbose=false): WaveFile(fileName, "r", verbose) {}
         uint32_t prepareFrame(float* dest, uint32_t chunkLength, bool noloop=false) {
             if (!isFileOpened()) {
                 return 0;
@@ -214,6 +215,7 @@ int main(int argc, char* argv[]) {
         {"chunklength", required_argument, 0, 2001},
         {"file", required_argument, 0, 2002},
         {"rblength", required_argument, 0, 2003},
+        {"verbose", no_argument, 0, 8001},
         {"directory", required_argument, 0, 9001},
         {0, 0, 0, 0}
     };
@@ -222,6 +224,7 @@ int main(int argc, char* argv[]) {
     bool loadonly = false;
     bool noLoop = false;
     bool dirMode = false;
+    bool verbose = false;
     std::string fileName;
     std::string dirName;
     uint32_t oDeviceIndex = 0;
@@ -271,6 +274,9 @@ int main(int argc, char* argv[]) {
                     return -1;
                 }
                 break;
+            case 8001:
+                verbose = true;
+                break;
             case 9001:
                 dirName.assign(optarg);
                 dirMode = true;
@@ -295,9 +301,9 @@ int main(int argc, char* argv[]) {
             }
         }
         std::sort(paths.begin(), paths.end());
-        curWF = new GaplessLooper(paths.at(0));
+        curWF = new GaplessLooper(paths.at(0), verbose);
     } else {
-        curWF = new GaplessLooper(fileName);
+        curWF = new GaplessLooper(fileName, verbose);
     }
 
     if (!curWF->isFileOpened()) {
@@ -371,8 +377,8 @@ int main(int argc, char* argv[]) {
                 prevWF = curWF;
                 playedFileCount++;
                 if (dirMode && (playedFileCount < paths.size())) {
-                    printf("\nFile: %s\n\n\n\n", paths.at(playedFileCount).c_str());
-                    curWF = new GaplessLooper(paths.at(playedFileCount));
+                    printf("\nFile: %s\n", paths.at(playedFileCount).c_str());
+                    curWF = new GaplessLooper(paths.at(playedFileCount), verbose);
                 }
                 curWF->prepareFrame(&(aData[readLength*prevWF->getChannels()].f32), ioChunkLength-readLength, true);
                 readLength = ioChunkLength;

@@ -89,7 +89,7 @@ class WaveFile {
 
     public:
         WaveFile(){}
-        WaveFile(std::string fileName, std::string mode) {
+        WaveFile(std::string fileName, std::string mode, bool verbose=false) {
             bool isReadMode = true;
             std::string rwmode("rb");
             if (mode.find('r') != std::string::npos) {
@@ -113,23 +113,29 @@ class WaveFile {
                 char wData[12] = {};
                 fread(wData, 1, 12, wFile);
                 fHeader.assign(wData, 4);
-                printf("RIFF Header check: %s\n", fHeader.c_str());
+                if (verbose) {
+                    printf("RIFF Header check: %s\n", fHeader.c_str());
+                }
                 memcpy(fSize.raw, &(wData[4]), 4);
-                printf("File size: %d\n", fSize.value);
-
+                if (verbose) {
+                    printf("File size: %d\n", fSize.value);
+                }
                 // WAVE indicator check
                 std::string fID;
                 fID.clear();
                 fID.assign(&(wData[8]), 4);
-                printf("WAVE ID check: %s\n", fID.c_str());
-
+                if (verbose) {
+                    printf("WAVE ID check: %s\n", fID.c_str());
+                }
                 char rawChunkID[4] = {};
                 //size_t readSize = 0;
                 while (true) {
                     //readSize = fread(rawChunkID, 1, 4, wFile);
                     fread(rawChunkID, 1, 4, wFile);
                     if (feof(wFile)) {
-                        printf("End of file.\n");
+                        if (verbose) {
+                            printf("End of file.\n");
+                        }
                         break;
                     }
                     std::string chunkID(rawChunkID, 4);
@@ -138,7 +144,9 @@ class WaveFile {
                         uint32_t data;
                     } chunkSize;
                     fread(chunkSize.raw, 1 ,4, wFile);
-                    printf("Chunk ID: %s, Chunk size: %d\n", chunkID.c_str(), chunkSize.data);
+                    if (verbose) {
+                        printf("Chunk ID: %s, Chunk size: %d\n", chunkID.c_str(), chunkSize.data);
+                    }
                     
                     if (chunkID.find("fmt") != std::string::npos) {
                         //printf("Format chunk found.\n");
@@ -146,7 +154,9 @@ class WaveFile {
                         chunkData = new char[chunkSize.data];
                         fread(chunkData, 1, chunkSize.data, wFile);
                         if (feof(wFile)) {
-                            printf("End of file.\n");
+                            if (verbose) {
+                                printf("End of file.\n");
+                            }
                             delete[] chunkData;
                             break;
                         }
@@ -158,55 +168,77 @@ class WaveFile {
                         
                         switch (wFormat.data) {
                             case 1:
-                                printf("Format: %d - Signed int (WAVE_FORMAT_PCM)\n", wFormat.data);
+                                if (verbose) {
+                                    printf("Format: %d - Signed int (WAVE_FORMAT_PCM)\n", wFormat.data);
+                                }
                                 isUnsupported = false;
                                 break;
                             case 3:
-                                printf("Format: %d - Float (WAVE_FORMAT_IEEE_FLOAT)\n", wFormat.data);
+                                if (verbose) {
+                                    printf("Format: %d - Float (WAVE_FORMAT_IEEE_FLOAT)\n", wFormat.data);
+                                }
                                 isUnsupported = false;
                                 wfmt = FLOAT_32;
                                 break;
                             case 7:
-                                printf("Format: %d - μ-law (WAVE_FORMAT_MULAW)\n", wFormat.data);
+                                if (verbose) {
+                                    printf("Format: %d - μ-law (WAVE_FORMAT_MULAW)\n", wFormat.data);
+                                }
                                 break;
                             case 65534:
-                                printf("Format: %d - WAVEFORMATEXTENSIBLE\n", wFormat.data);
+                                if (verbose) {
+                                    printf("Format: %d - WAVEFORMATEXTENSIBLE\n", wFormat.data);
+                                }
                                 isUnsupported = false;
                                 break;
                             default:
-                                printf("Format: %d - Unknown\n", wFormat.data);
+                                if (verbose) {
+                                    printf("Format: %d - Unknown\n", wFormat.data);
+                                }
                                 break;
                         }
                         if (isUnsupported) {
-                            printf("Unsupported data type\n");
+                            printf("Loader Warning: Unsupported data type\n");
                         }
-                        printf("Channels: %d\n", nChannels.data);
-                        printf("fs: %d\n", nSPS.data);
-                        printf("Bitrate: %dBytes/sec, %9.3fkbits/s\n", nBPS.data, (float)(nBPS.data*8)/1000.0);
-                        printf("         %dBytes/(sample*ch)\n", nBytesPerSample);
+                        if (verbose) {
+                            printf("Channels: %d\n", nChannels.data);
+                            printf("fs: %d\n", nSPS.data);
+                            printf("Bitrate: %dBytes/sec, %9.3fkbits/s\n", nBPS.data, (float)(nBPS.data*8)/1000.0);
+                            printf("         %dBytes/(sample*ch)\n", nBytesPerSample);
+                        }
                         if (chunkSize.data >= 16) {
                             memcpy(nBlockAlign.raw, &(chunkData[12]), 2);
                             memcpy(nBitsPerSample.raw, &(chunkData[14]), 2);
-                            printf("         %dbits/sample\n", nBitsPerSample.data);
-                            printf("Block Align: %d\n", nBlockAlign.data);
+                            if (verbose) {
+                                printf("         %dbits/sample\n", nBitsPerSample.data);
+                                printf("Block Align: %d\n", nBlockAlign.data);
+                            }
                         }
                         if (chunkSize.data >= 18) {
                             memcpy(cbSize.raw, &(chunkData[16]), 2);
-                            printf("cbSize: %d\n", cbSize.data);
+                            if (verbose) {
+                                printf("cbSize: %d\n", cbSize.data);
+                            }
                         }
                         if (chunkSize.data >= 20) {
                             memcpy(Samples.raw, &(chunkData[18]), 2);
-                            printf("Samples: %d\n", Samples.data);
+                            if (verbose) {
+                                printf("Samples: %d\n", Samples.data);
+                            }
                         }
                         if (chunkSize.data >= 24) {
                             memcpy(dwChannelMask.raw, &(chunkData[20]), 4);
-                            printf("dwChannelMask: 0x%08X\n", dwChannelMask.data);
+                            if (verbose) {
+                                printf("dwChannelMask: 0x%08X\n", dwChannelMask.data);
+                            }
                         }
                         if (chunkSize.data >= 40) {
                             memcpy(guid, &(chunkData[24]), 16);
-                            printf("Rest data (possibly subformat GUID):\n");
-                            for (int tempctr=0; tempctr<16; tempctr++) {
-                                printf("%02X ", guid[tempctr]);
+                            if (verbose) {
+                                printf("Rest data (possibly subformat GUID):\n");
+                                for (int tempctr=0; tempctr<16; tempctr++) {
+                                    printf("%02X ", guid[tempctr]);
+                                }
                             }
                             memcpy(subfmt.raw, guid, 4);
                             printf("\n");
@@ -216,42 +248,60 @@ class WaveFile {
                         }
                         nSingleSampleSize = nBytesPerSample / nChannels.data;
                         if (wfmt != FLOAT_32) {
-                            printf("Data type: ");
+                            if (verbose) {
+                                printf("Data type: ");
+                            }
                             switch (nSingleSampleSize) {
                                 case 1:
                                     wfmt = SIGNED_8;
-                                    printf("Signed 8bit\n");
+                                    if (verbose) {
+                                        printf("Signed 8bit\n");
+                                    }
                                     break;
                                 case 2:
                                     wfmt = SIGNED_16;
-                                    printf("Signed 16bit\n");
+                                    if (verbose) {
+                                        printf("Signed 16bit\n");
+                                    }
                                     break;
                                 case 3:
                                     wfmt = SIGNED_24;
-                                    printf("Signed 24bit\n");
+                                    if (verbose) {
+                                        printf("Signed 24bit\n");
+                                    }
                                     break;
                                 case 4:
                                     wfmt = SIGNED_32;
-                                    printf("Signed 32bit\n");
+                                    if (verbose) {
+                                        printf("Signed 32bit\n");
+                                    }
                                     break;
                                 default:
                                     isUnsupported = true;
-                                    printf("Unsupported\n");
+                                    if (verbose) {
+                                        printf("Unsupported\n");
+                                    }
                                     break;
                             };
-                            printf("\n");
+                            if (verbose) {
+                                printf("\n");
+                            }
                         } else {
-                            printf("Data type: Float 32bit\n");
+                            if (verbose) {
+                                printf("Data type: Float 32bit\n");
+                            }
                         }
                         delete[] chunkData;
                         continue;
                     }
                     if (chunkID.find("data") != std::string::npos) {
-                        printf("Data chunk found - ");
                         dataChunkPos = ftell(wFile);
-                        printf("Position: %ld\n", dataChunkPos);
                         fseek(wFile, chunkSize.data, SEEK_CUR);
                         dataChunkSize  = chunkSize.data;
+                        if (verbose) {
+                            printf("Data chunk found - ");
+                            printf("Position: %ld\n", dataChunkPos);
+                        }
                         continue;
                     }
                     fseek(wFile, chunkSize.data, SEEK_CUR);
