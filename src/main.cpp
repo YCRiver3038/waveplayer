@@ -165,20 +165,24 @@ class GaplessLooper : public WaveFile {
 };
 
 void showHelp() {
-    printf("args: --help, --list-devices, --loadonly --output-device, --chunklength, --rblength, --file, --noloop\n");
-    printf("--help                       : Show this help\n"
-           "--list-devices               : Show sound devices and exit.\n"
-           "--loadonly                   : Only load wave file (and exit without playing).\n"
-           "--output-device <index: int> : Set sound output device to device No.<index>.\n"
-           "                               index can be retrieved with function --list-devices.\n"
-           "--chunklength <length: int>  : Set chunk length to <length>.\n"
-           "                               chunk length is the sample length which application reads from file in once.\n"
-           "                               detail: chunklength = (number of sample) * (number of audio channel)\n"
-           "--rblength <length: int>     : Set ring buffer length to <length>.\n"
-           "                             : at least (chunklength * 2) shuld be set.\n"
-           "                             : application will retrieve double length by set length.\n"
-           "--file <filename: str>       : Set file name to load.\n"
-           "--noloop                     : Don't loop file if set.\n");
+    printf("args:\n--help, --list-devices, --loadonly, --verbose, --noloop,\n"
+           "--output-device, --chunklength, --rblength, --file, --directory\n\n");
+    printf("--help                        : Show this help\n"
+           "--list-devices                : Show sound devices and exit.\n"
+           "--loadonly                    : Only load wave file (and exit without playing).\n"
+           "--noloop                      : Don't loop file if set.\n"
+           "--verbose                     : Show additional information.\n"
+           "--output-device <index: int>  : Set sound output device to device No.<index>.\n"
+           "                                index can be retrieved with function --list-devices.\n"
+           "--chunklength <length: int>   : Set chunk length to <length>.\n"
+           "                                chunk length is the sample length which application reads from file in once.\n"
+           "                                detail: chunklength = (the number of sample) * (the number of audio channel)\n"
+           "--rblength <length: int>      : Set ring buffer length to <length>.\n"
+           "                              : at least (chunklength * 2) shuld be set.\n"
+           "                              : application will retrieve double length by set length.\n"
+           "--file <filename: str>        : Set file name to load.\n"
+           "--directory <directory: str>  : Set directory to load.\n"
+           );
 }
 
 void displayInformation(AudioManipulator& aOut, GaplessLooper& wf,
