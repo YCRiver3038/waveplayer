@@ -292,7 +292,6 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::string> paths;
     GaplessLooper* curWF = nullptr;
-    GaplessLooper* prevWF = nullptr;
     if (dirMode) {
         for (const std::filesystem::directory_entry& dirinfo : std::filesystem::directory_iterator(dirName)) {
             std::string path(dirinfo.path().c_str());
@@ -378,23 +377,24 @@ int main(int argc, char* argv[]) {
         }
         if (readLength < ioChunkLength) {
             if (dirMode) {
-                prevWF = curWF;
                 playedFileCount++;
-                delete curWF;
                 if (playedFileCount < paths.size()) {
+                    GaplessLooper* prevWF = nullptr;
+                    prevWF = curWF;
                     printf("\nFile: %s\n", paths.at(playedFileCount).c_str());
                     curWF = new GaplessLooper(paths.at(playedFileCount), verbose);
                     curWF->prepareFrame(&(aData[readLength*prevWF->getChannels()].f32), ioChunkLength-readLength, true);
                     readLength = ioChunkLength;
+                    delete prevWF;
                 } else {
-                    memset((float*)&(aData[readLength*prevWF->getChannels()].f32),
+                    memset((float*)&(aData[readLength*curWF->getChannels()].f32),
                         0,
-                        sizeof(float)*(ioChunkLength-readLength)*prevWF->getChannels());
+                        sizeof(float)*(ioChunkLength-readLength)*curWF->getChannels());
                 }
             } else {
-                memset((float*)&(aData[readLength*prevWF->getChannels()].f32),
+                memset((float*)&(aData[readLength*curWF->getChannels()].f32),
                         0,
-                        sizeof(float)*(ioChunkLength-readLength)*prevWF->getChannels());
+                        sizeof(float)*(ioChunkLength-readLength)*curWF->getChannels());
             }
         }
         //AudioManipulator::deinterleave(aData, deint, ioChunkLength);
@@ -453,9 +453,6 @@ int main(int argc, char* argv[]) {
     //}
     if (curWF) {
         delete curWF;
-    }
-    if (prevWF) {
-        delete prevWF;
     }
 
     printf("Audio output closing...\n");
