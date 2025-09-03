@@ -88,6 +88,7 @@ class WaveFile {
         char* tempRawData = nullptr;
 
     public:
+        WaveFile(){}
         WaveFile(std::string fileName, std::string mode) {
             bool isReadMode = true;
             std::string rwmode("rb");
@@ -260,7 +261,7 @@ class WaveFile {
                 //printf("DEBUG:\n  tempRawData: %p\n", tempRawData);
             }
         }
-        ~WaveFile() {
+        virtual ~WaveFile() {
             if (!isClosed && wFile) {
                 //printf("DEBUG (to close):\n  wFile: %p\n", wFile);
                 fclose(wFile);

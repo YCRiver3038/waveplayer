@@ -8,6 +8,8 @@
 
 #include <string>
 #include <atomic>
+#include <vector>
+#include <filesystem>
 
 //#include "nlohmann/json.hpp"
 
@@ -212,9 +214,7 @@ int main(int argc, char* argv[]) {
         {"chunklength", required_argument, 0, 2001},
         {"file", required_argument, 0, 2002},
         {"rblength", required_argument, 0, 2003},
-#if defined(__linux__) || defined(__APPLE__)
         {"directory", required_argument, 0, 9001},
-#endif
         {0, 0, 0, 0}
     };
     int getoptStatus = 0;
@@ -271,30 +271,49 @@ int main(int argc, char* argv[]) {
                     return -1;
                 }
                 break;
-#if defined(__linux__) || defined(__APPLE__)
             case 9001:
                 dirName.assign(optarg);
                 dirMode = true;
                 break;
-#endif
             default:
                 break;
         }
     } while (getoptStatus != -1);
 
-    GaplessLooper* wfdir1;
-    GaplessLooper wf1(fileName);
-    if (!wf1.isFileOpened()) {
-        printf("Cannot open file: %s\n", fileName.c_str());
-        return -1;
+    std::vector<std::string> paths;
+    GaplessLooper* curWF = nullptr;
+    GaplessLooper* prevWF = nullptr;
+    if (dirMode) {
+        for (const std::filesystem::directory_entry& dirinfo : std::filesystem::directory_iterator(dirName)) {
+            std::string path(dirinfo.path().c_str());
+            std::string lcpath((std::string::size_type)path.length(), 0);
+            for (std::string::size_type sidx=0; sidx < path.length(); sidx++) {
+                lcpath.at(sidx) = std::tolower(path.at(sidx));
+            }
+            if (lcpath.find(".wav") != std::string::npos) {
+                paths.push_back(path.c_str());
+            }
+        }
+        std::sort(paths.begin(), paths.end());
+        curWF = new GaplessLooper(paths.at(0));
+    } else {
+        curWF = new GaplessLooper(fileName);
     }
 
+    if (!curWF->isFileOpened()) {
+        if (dirMode){
+            printf("Cannot open file: %s\n", paths.at(0).c_str());
+        } else {
+            printf("Cannot open file: %s\n", fileName.c_str());
+        }
+        return -1;
+    }
     if (loadonly) {
         return 0;
     }
 
     AudioManipulator aOut(oDeviceIndex, "o",
-                          (double)wf1.getSampleFreq(), "f32", 2,
+                          (double)curWF->getSampleFreq(), "f32", 2,
                           ioRBLength, ioChunkLength);
 
     if (!aOut.isDeviceAvailable()) {
@@ -303,12 +322,12 @@ int main(int argc, char* argv[]) {
     }
 
     AudioData* aData = nullptr;
-    aData = new AudioData[ioChunkLength*wf1.getChannels()];
+    aData = new AudioData[ioChunkLength*curWF->getChannels()];
     if (!aData) {
         printf("Cannot allocate read buffer\n");
         return -1;
     }
-    for (uint32_t ctr=0; ctr<(ioChunkLength*wf1.getChannels()); ctr++) {
+    for (uint32_t ctr=0; ctr<(ioChunkLength*curWF->getChannels()); ctr++) {
         aData[ctr].f32 = 0.0;
     }
 
@@ -320,7 +339,7 @@ int main(int argc, char* argv[]) {
     uint32_t mfInputs = 16;
     uint32_t mfOutputs = 16;
     MatrixFader mf1(mfInputs, mfOutputs);
-    if (wf1.getChannels() < 2) {
+    if (curWF->getChannels() < 2) {
         mf1.setCrossPointGain(0, 0, 0.0);
         mf1.setCrossPointGain(0, 1, 0.0);
     }
@@ -334,14 +353,39 @@ int main(int argc, char* argv[]) {
 
     float wPeak = 0;
     float wABS = 0;
-    printf("File: %s\n\n\n\n", fileName.c_str());//ファイル名の表示: 下の '\033[3A'で3行分上書きされるため改行を追加
+    std::size_t playedFileCount = 0;
+    if (dirMode) { //ファイル名の表示: 下の '\033[3A'で3行分上書きされるため改行を追加
+        printf("File: %s\n\n\n\n", paths.at(0).c_str());
+    } else {
+        printf("File: %s\n\n\n\n", fileName.c_str());
+    }
     while (!KeyboardInterrupt.load()) {
         wPeak = 0;
-        readLength = wf1.prepareFrame(&(aData[0].f32), ioChunkLength, noLoop);
-        AudioManipulator::deinterleave(aData, deint, ioChunkLength);
-        AudioManipulator::interleave(deint, aData, ioChunkLength);
+        if (dirMode) {
+            readLength = curWF->prepareFrame(&(aData[0].f32), ioChunkLength, true);
+        } else {
+            readLength = curWF->prepareFrame(&(aData[0].f32), ioChunkLength, noLoop);
+        }
+        if (readLength < ioChunkLength) {
+            if (dirMode) {
+                prevWF = curWF;
+                playedFileCount++;
+                if (dirMode && (playedFileCount < paths.size())) {
+                    printf("\nFile: %s\n\n\n\n", paths.at(playedFileCount).c_str());
+                    curWF = new GaplessLooper(paths.at(playedFileCount));
+                }
+                curWF->prepareFrame(&(aData[readLength*prevWF->getChannels()].f32), ioChunkLength-readLength, true);
+                readLength = ioChunkLength;
+            } else if (noLoop) {
+                memset((float*)&(aData[readLength*prevWF->getChannels()].f32),
+                    0,
+                    sizeof(float)*(ioChunkLength-readLength)*prevWF->getChannels());
+            }
+        }
+        //AudioManipulator::deinterleave(aData, deint, ioChunkLength);
+        //AudioManipulator::interleave(deint, aData, ioChunkLength);
         // get peak
-        for (uint32_t ctr=0; ctr<(ioChunkLength*wf1.getChannels()); ctr++) {
+        for (uint32_t ctr=0; ctr<(ioChunkLength*aOut.getChannelCount()); ctr++) {
             wABS = aData[ctr].f32;
             if (wABS < 0) {
                 wABS *= -1;
@@ -350,15 +394,9 @@ int main(int argc, char* argv[]) {
                 wPeak = wABS;
             }
         }
-        if (noLoop && (readLength < ioChunkLength)) {
-            memset((float*)&(aData[readLength*wf1.getChannels()].f32),
-                   0,
-                   sizeof(float)*(ioChunkLength-readLength)*wf1.getChannels());
-        }
 
         // print information
-        displayInformation(aOut, wf1, readLength, barLength, wPeak);
-
+        displayInformation(aOut, *curWF, readLength, barLength, wPeak);
         // write audio data to audio output
         aOut.blockingWrite(aData, readLength, 1000);
         if (noLoop && (readLength < ioChunkLength)) {
@@ -367,12 +405,12 @@ int main(int argc, char* argv[]) {
     }
     KeyboardInterrupt.store(false);
     while (aOut.wait(50) != 0) {
-        displayInformation(aOut, wf1, readLength, barLength, wPeak);
+        displayInformation(aOut, *curWF, readLength, barLength, wPeak);
         if (KeyboardInterrupt.load()) {
             break;
         }
     }
-    displayInformation(aOut, wf1, readLength, barLength, wPeak);
+    displayInformation(aOut, *curWF, readLength, barLength, wPeak);
     puts("\n");
     if (KeyboardInterrupt.load()) {
         printf("\nKeyboardInterrupt.\n");
@@ -390,6 +428,12 @@ int main(int argc, char* argv[]) {
     //if (aData) {
         delete[] aData;
     //}
+    if (curWF) {
+        delete curWF;
+    }
+    if (prevWF) {
+        delete prevWF;
+    }
 
     printf("Audio output closing...\n");
     aOut.close();
