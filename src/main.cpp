@@ -237,6 +237,8 @@ int main(int argc, char* argv[]) {
     do {
         getoptStatus = getopt_long(argc, argv, "", long_options, &optionIndex);
         switch (getoptStatus) {
+            case '?':
+                return -1;
             case 'h':
                 showHelp();
                 return 0;
