@@ -50,10 +50,13 @@ void kbiHandler(int signo) {
 template <typename DTYPE>
 void printRatBar(DTYPE fillLength, DTYPE maxLength,
                  int charLength=10, bool withPercent=false,
-                 char fillChar='#', char emptyChar='_', bool colored=false) {
+                 char fillChar='#', char emptyChar='_',
+                 bool colored=false, bool revcolor=false) {
     float fillRatio = 0.0;
     int fillCount = 0;
-    fillRatio = (float)fillLength / (float)maxLength;
+    if (fillLength > 0) {
+        fillRatio = (float)fillLength / (float)maxLength;
+    }
     fillCount = (int)(fillRatio * (float)charLength);
     bool halfMarked = false;
     bool fourFifthMarked = false;
@@ -61,7 +64,11 @@ void printRatBar(DTYPE fillLength, DTYPE maxLength,
     for (int ctr = 0; ctr < fillCount; ctr++) {
         if (colored) {
             if ((ctr < (charLength/2)) && !halfMarked) {
-                printf("\x1b[041m\x1b[097m");
+                if (revcolor) {
+                    printf("\x1b[042m\x1b[097m");
+                } else {
+                    printf("\x1b[041m\x1b[097m");
+                } 
                 halfMarked = true;
             }
             if (((charLength/2) <= ctr) && (ctr < ((4*charLength)/5)) && !fourFifthMarked) {
@@ -71,7 +78,11 @@ void printRatBar(DTYPE fillLength, DTYPE maxLength,
             }
             if ( (((4*charLength)/5) <= ctr) && !almostFullMarked ) {
                 printf("\x1b[0m");
-                printf("\x1b[042m\x1b[097m");
+                if (revcolor) {
+                    printf("\x1b[041m\x1b[097m");
+                } else {
+                    printf("\x1b[042m\x1b[097m");
+                }
                 almostFullMarked = true;
             }
         }
@@ -90,10 +101,13 @@ void printRatBar(DTYPE fillLength, DTYPE maxLength,
 
 void printRatBar(float fillLength, float maxLength,
                  int charLength=10, bool withPercent=false,
-                 char fillChar='#', char emptyChar='_', bool colored=false) {
+                 char fillChar='#', char emptyChar='_',
+                 bool colored=false,  bool revcolor=false) {
     float fillRatio = 0.0;
     int fillCount = 0;
-    fillRatio = fillLength / maxLength;
+    if (fillLength > 0.0) {
+        fillRatio = (float)fillLength / (float)maxLength;
+    }
     fillCount = (int)(fillRatio * charLength);
     bool halfMarked = false;
     bool fourFifthMarked = false;
@@ -101,7 +115,11 @@ void printRatBar(float fillLength, float maxLength,
     for (int ctr = 0; ctr < fillCount; ctr++) {
         if (colored) {
             if ((ctr < (charLength/2)) && !halfMarked) {
-                printf("\x1b[041m\x1b[097m");
+                if (revcolor) {
+                    printf("\x1b[042m\x1b[097m");
+                } else {
+                    printf("\x1b[041m\x1b[097m");
+                } 
                 halfMarked = true;
             }
             if (((charLength/2) <= ctr) && (ctr < ((4*charLength)/5)) && !fourFifthMarked) {
@@ -111,7 +129,11 @@ void printRatBar(float fillLength, float maxLength,
             }
             if ( (((4*charLength)/5) <= ctr) && !almostFullMarked ) {
                 printf("\x1b[0m");
-                printf("\x1b[042m\x1b[097m");
+                if (revcolor) {
+                    printf("\x1b[041m\x1b[097m");
+                } else {
+                    printf("\x1b[042m\x1b[097m");
+                }
                 almostFullMarked = true;
             }
         }
@@ -130,10 +152,13 @@ void printRatBar(float fillLength, float maxLength,
 
 void printRatBar(double fillLength, double maxLength,
                  int charLength=10, bool withPercent=false,
-                 char fillChar='#', char emptyChar='_', bool colored=false) {
+                 char fillChar='#', char emptyChar='_',
+                 bool colored=false, bool revcolor=false) {
     float fillRatio = 0.0;
     int fillCount = 0;
-    fillRatio = fillLength / maxLength;
+    if (fillLength > 0) {
+        fillRatio = (float)fillLength / (float)maxLength;
+    }
     fillCount = (int)(fillRatio * charLength);
     bool halfMarked = false;
     bool fourFifthMarked = false;
@@ -141,7 +166,11 @@ void printRatBar(double fillLength, double maxLength,
     for (int ctr = 0; ctr < fillCount; ctr++) {
         if (colored) {
             if ((ctr < (charLength/2)) && !halfMarked) {
-                printf("\x1b[041m\x1b[097m");
+                if (revcolor) {
+                    printf("\x1b[042m\x1b[097m");
+                } else {
+                    printf("\x1b[041m\x1b[097m");
+                } 
                 halfMarked = true;
             }
             if (((charLength/2) <= ctr) && (ctr < ((4*charLength)/5)) && !fourFifthMarked) {
@@ -151,7 +180,11 @@ void printRatBar(double fillLength, double maxLength,
             }
             if ( (((4*charLength)/5) <= ctr) && !almostFullMarked ) {
                 printf("\x1b[0m");
-                printf("\x1b[042m\x1b[097m");
+                if (revcolor) {
+                    printf("\x1b[041m\x1b[097m");
+                } else {
+                    printf("\x1b[042m\x1b[097m");
+                }
                 almostFullMarked = true;
             }
         }
@@ -191,6 +224,8 @@ void showHelp() {
 void displayInformation(AudioManipulator& aOut, GaplessLooper& wf,
                         int readLength, int barLength, float wPeak) {
     float dbwPeak = 0.0;
+    float dbPos = 0.0;
+    constexpr float dbMin = -24.0;
     puts("\r\033[3A");
     printRatBar(aOut.getRbStoredChunkLength(), aOut.getRbChunkLength(), barLength, true, '*', ' ', true);
     printf("|%6d|%6lu|%9lu|%9lu|\n", readLength, aOut.getTxCbFrameCount(), aOut.getRbStoredLength(), aOut.getRbLength());
@@ -199,7 +234,12 @@ void displayInformation(AudioManipulator& aOut, GaplessLooper& wf,
     printf("|%6.1f / %6.1f\n", wf.getPositionInSeconds(), wf.getLengthInSeconds());
     // print peak
     dbwPeak = 20*log10(wPeak);
-    printRatBar(wPeak, 1.0f, barLength, false, '>', ' ');
+    if (wPeak > 0) {
+        dbPos = dbMin - dbwPeak;
+        dbPos /= dbMin;
+    }
+
+    printRatBar(dbPos, 1.0f, barLength, false, '>', ' ', true, true);
     printf("|%6.1f", dbwPeak);
     fflush(stdout);
 }
