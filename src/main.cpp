@@ -99,67 +99,16 @@ void printRatBar(DTYPE fillLength, DTYPE maxLength,
     }
 }
 
-void printRatBar(float fillLength, float maxLength,
-                 int charLength=10, bool withPercent=false,
-                 char fillChar='#', char emptyChar='_',
-                 bool colored=false,  bool revcolor=false) {
-    float fillRatio = 0.0;
-    int fillCount = 0;
-    if (fillLength > 0.0) {
-        fillRatio = (float)fillLength / (float)maxLength;
-    }
-    fillCount = (int)(fillRatio * charLength);
-    bool halfMarked = false;
-    bool fourFifthMarked = false;
-    bool almostFullMarked = false;
-    for (int ctr = 0; ctr < fillCount; ctr++) {
-        if (colored) {
-            if ((ctr < (charLength/2)) && !halfMarked) {
-                if (revcolor) {
-                    printf("\x1b[042m\x1b[097m");
-                } else {
-                    printf("\x1b[041m\x1b[097m");
-                } 
-                halfMarked = true;
-            }
-            if (((charLength/2) <= ctr) && (ctr < ((4*charLength)/5)) && !fourFifthMarked) {
-                printf("\x1b[0m");
-                printf("\x1b[043m\x1b[097m");
-                fourFifthMarked = true;
-            }
-            if ( (((4*charLength)/5) <= ctr) && !almostFullMarked ) {
-                printf("\x1b[0m");
-                if (revcolor) {
-                    printf("\x1b[041m\x1b[097m");
-                } else {
-                    printf("\x1b[042m\x1b[097m");
-                }
-                almostFullMarked = true;
-            }
-        }
-        putchar(fillChar);
-    }
-    if (colored) {
-        printf("\x1b[0m");
-    }
-    for (int ctr = 0; ctr < (charLength - fillCount); ctr++) {
-        putchar(emptyChar);
-    }
-    if (withPercent) {
-        printf("|%5.1f%%", fillRatio*100.0);
-    }
-}
-
 void printRatBar(double fillLength, double maxLength,
                  int charLength=10, bool withPercent=false,
                  char fillChar='#', char emptyChar='_',
                  bool colored=false, bool revcolor=false) {
-    float fillRatio = 0.0;
+    double fillRatio = 0.0;
     int fillCount = 0;
     if (fillLength > 0) {
-        fillRatio = (float)fillLength / (float)maxLength;
+        fillRatio = fillLength / maxLength;
     }
-    fillCount = (int)(fillRatio * charLength);
+    fillCount = (int)(fillRatio * (double)charLength);
     bool halfMarked = false;
     bool fourFifthMarked = false;
     bool almostFullMarked = false;
