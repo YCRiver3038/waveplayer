@@ -183,7 +183,6 @@ void showHelp() {
            "                                detail: chunklength = (the number of sample) * (the number of audio channel)\n"
            "--rblength <length: int>      : Set ring buffer length to <length>.\n"
            "                                at least (chunklength * 2) shuld be set.\n"
-           "                                application will retrieve double length by set length.\n"
            "--file <filename: str>        : Set file name to load.\n"
            "--directory <directory: str>  : Set directory to load.\n"
            );
