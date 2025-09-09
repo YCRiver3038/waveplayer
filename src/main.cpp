@@ -18,9 +18,33 @@
 #include "WaveLoader.hpp"
 #include "MatrixFader.hpp"
 
+class GaplessLooper : public WaveFile {
+    public:
+        GaplessLooper(std::string fileName, bool verbose=false): WaveFile(fileName, "r", verbose) {}
+        uint32_t prepareFrame(float* dest, uint32_t chunkLength, bool noloop=false) {
+            if (!isFileOpened()) {
+                return 0;
+            }
+            uint32_t readLength = 0;
+            readLength = read(dest, chunkLength);
+            if (noloop) {
+                return readLength;
+            }
+            if (readLength < chunkLength) {
+                rewind();
+                readLength = read(&(dest[readLength*getChannels()]), chunkLength-readLength);
+            }
+            return chunkLength;
+        }
+};
+
 std::atomic<bool> KeyboardInterrupt;
+GaplessLooper* curWF = nullptr;
 void kbiHandler(int signo) {
     KeyboardInterrupt.store(true);
+    if (curWF) {
+        curWF->abortRequest();
+    }
 }
 
 template <typename DTYPE>
@@ -143,26 +167,6 @@ void printRatBar(double fillLength, double maxLength,
         printf("|%5.1f%%", fillRatio*100.0);
     }
 }
-
-class GaplessLooper : public WaveFile {
-    public:
-        GaplessLooper(std::string fileName, bool verbose=false): WaveFile(fileName, "r", verbose) {}
-        uint32_t prepareFrame(float* dest, uint32_t chunkLength, bool noloop=false) {
-            if (!isFileOpened()) {
-                return 0;
-            }
-            uint32_t readLength = 0;
-            readLength = read(dest, chunkLength);
-            if (noloop) {
-                return readLength;
-            }
-            if (readLength < chunkLength) {
-                rewind();
-                readLength = read(&(dest[readLength*getChannels()]), chunkLength-readLength);
-            }
-            return chunkLength;
-        }
-};
 
 void showHelp() {
     printf("args:\n--help, --list-devices, --loadonly, --verbose, --noloop,\n"
@@ -293,7 +297,6 @@ int main(int argc, char* argv[]) {
     } while (getoptStatus != -1);
 
     std::vector<std::string> paths;
-    GaplessLooper* curWF = nullptr;
     if (dirMode) {
         for (const std::filesystem::directory_entry& dirinfo : std::filesystem::directory_iterator(dirName)) {
             std::string path(dirinfo.path().c_str());
@@ -317,6 +320,10 @@ int main(int argc, char* argv[]) {
         } else {
             printf("Cannot open file: %s\n", fileName.c_str());
         }
+        return -1;
+    }
+    if (!(curWF->isWaveFile())) {
+        printf("Error: It's not WAVE file.\n");
         return -1;
     }
     if (loadonly) {

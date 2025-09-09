@@ -83,6 +83,9 @@ class WaveFile {
         uint32_t nBytesPerSample = 0;
         bool isUnsupported = true;
         bool isWaveDataEnd = false;
+        bool isWAVE = false;
+        bool abortreq = false;
+        bool errorStatus = false;
         WF_Format wfmt;
         uint32_t readSizeCount = 0;
         char* tempRawData = nullptr;
@@ -120,6 +123,13 @@ class WaveFile {
                 if (verbose) {
                     printf("File size: %d\n", fSize.value);
                 }
+                if (fSize.value == 0) {
+                    printf("Illegal file!\n");
+                    fclose(wFile);
+                    isClosed = true;
+                    errorStatus = true;
+                    return;
+                }
                 // WAVE indicator check
                 std::string fID;
                 fID.clear();
@@ -127,9 +137,14 @@ class WaveFile {
                 if (verbose) {
                     printf("WAVE ID check: %s\n", fID.c_str());
                 }
+                if (fID == "WAVE") {
+                    isWAVE = true;
+                } else {
+                    printf("\x1b[40m \x1b[93mWarning: It's not WAVE file. \x1b[0m\n");
+                }
                 char rawChunkID[4] = {};
                 //size_t readSize = 0;
-                while (true) {
+                while (!abortreq) {
                     //readSize = fread(rawChunkID, 1, 4, wFile);
                     fread(rawChunkID, 1, 4, wFile);
                     if (feof(wFile)) {
@@ -322,6 +337,9 @@ class WaveFile {
                 delete[] tempRawData;
             }
         }
+        void abortRequest() {
+            abortreq = true;
+        }
         uint32_t getSampleFreq() {
             return (int)nSPS.data;
         }
@@ -399,10 +417,13 @@ class WaveFile {
             return (float)(dataChunkSize / (nBytesPerSample)) / nSPS.data;
         }
         bool isFileOpened() {
-            if (!wFile) {
-                return false;
-            }
-            return true;
+            return isClosed ? false : true;
+        }
+        bool isError() {
+            return errorStatus;
+        }
+        bool isWaveFile() {
+            return isWAVE;
         }
         bool isEndOfFile() {
             if (feof(wFile) != 0) {
