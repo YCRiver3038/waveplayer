@@ -378,7 +378,7 @@ int main(int argc, char* argv[]) {
                 if (playedFileCount < paths.size()) {
                     GaplessLooper* prevWF = nullptr;
                     prevWF = curWF;
-                    printf("\nFile: %s\n", paths.at(playedFileCount).c_str());
+                    printf("\nFile: %s\n\n\n\n", paths.at(playedFileCount).c_str());
                     curWF = new GaplessLooper(paths.at(playedFileCount), verbose);
                     curWF->prepareFrame(&(aData[readLength*prevWF->getChannels()].f32), ioChunkLength-readLength, true);
                     readLength = ioChunkLength;
