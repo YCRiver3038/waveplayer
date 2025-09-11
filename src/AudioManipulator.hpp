@@ -58,6 +58,8 @@ class AudioManipulator {
         unsigned long txCbFrameCount = 0;
         unsigned long rxCbFrameCount = 0;
         unsigned int lengthFactor = 1;
+        AudioData* zerodata = nullptr;
+        unsigned long zdlength = 0;
 
     public:
         unsigned long iFrameCount = 0;
@@ -93,6 +95,10 @@ class AudioManipulator {
             parameters.device = index;
             devInfo = Pa_GetDeviceInfo(index);
             fs = fSample;
+            
+            zdlength = chunkLength*channels;
+            zerodata = new AudioData[zdlength];
+            std::memset(zerodata, 0, zdlength);
 
             if ((dir.compare("o") == 0) || (dir.compare("O") == 0)) {
                 output = true;
@@ -160,6 +166,9 @@ class AudioManipulator {
                 //printf("DEBUG(to free):\n  dataBuf:%p\n", dataBuf);
                 delete dataBuf;
                 dataBuf = nullptr;
+            }
+            if (zerodata) {
+                delete[] zerodata;
             }
         }
 
@@ -287,19 +296,29 @@ class AudioManipulator {
         }
 
         int read(AudioData* dest, uint32_t length) {
+            uint32_t remain = 0;
+            remain = getRbStoredChunkLength();
             if (openStatus != paNoError) {
                 return -1;
             }
             if (!dataBuf) {
                 return -1;
             }
-            if (getRbStoredChunkLength() >= length) {
+            if (remain >= length) {
                 memcpy(dest, dataBuf->get_data_memcpy(length*nCH/lengthFactor),
                              length*nCH*sizeof(AudioData)/lengthFactor);
                 //memcpy(dest, dataBuf->get_data_nelm_queue(length*nCH), length*nCH*sizeof(AudioData));
+            } else if (remain != 0) {
+                memcpy(dest, dataBuf->get_data_memcpy(remain*nCH/lengthFactor),
+                             remain*nCH*sizeof(AudioData)/lengthFactor);
             } else {
-                memcpy(dest, dataBuf->get_data_memcpy(getRbStoredChunkLength()*nCH/lengthFactor),
-                             getRbStoredChunkLength()*nCH*sizeof(AudioData)/lengthFactor);
+                if ((length*nCH) < zdlength) {
+                    memcpy(dest, zerodata,
+                           length*nCH*sizeof(AudioData)/lengthFactor);
+                } else {
+                    memcpy(dest, zerodata,
+                           zdlength*sizeof(AudioData)/lengthFactor);  
+                }
             }
             return 0;
         }
