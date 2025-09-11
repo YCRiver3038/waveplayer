@@ -271,9 +271,17 @@ class AudioManipulator {
             if (remain > length) {
                 dataBuf->put_data_memcpy(src, length*nCH/lengthFactor);
                 //dataBuf->put_data_arr_queue(src, length*nCH*lengthFactor);
-            } else {
-                dataBuf->put_data_memcpy(src, remain*nCH/lengthFactor);
+                return 0;
             }
+            if (remain > 0) {
+                dataBuf->put_data_memcpy(src, remain*nCH/lengthFactor);
+                return 0;
+            }
+            if ((length*nCH) < zdlength) {
+                dataBuf->put_data_memcpy(zerodata, length*nCH/lengthFactor);
+                return 0;
+            }
+            dataBuf->put_data_memcpy(zerodata, zdlength);
             return 0;
         }
 
