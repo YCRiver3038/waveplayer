@@ -131,6 +131,7 @@ class AudioManipulator {
                 nCH = channels;
                 if (devInfo->maxInputChannels < channels) {
                     nCH = devInfo->maxInputChannels;
+                    printf("Warning: Available input channel is less than specified: Changed to %d Channels\n", nCH);
                 }
                 parameters.channelCount = nCH;
                 openStatus = Pa_OpenStream(&aStream, &parameters, nullptr, fs,
@@ -139,6 +140,7 @@ class AudioManipulator {
             //printf("DEBUG:\n  aStream: %p\n", aStream);
             if (openStatus != 0) {
                 fprintf(stderr, "PortAudio - opening stream failed: %s ( %d )\n", Pa_GetErrorText(openStatus), openStatus);
+                initStatus = openStatus;
                 return;
             }
             rbLen = ringBufLength*nCH;
@@ -249,15 +251,19 @@ class AudioManipulator {
         }
 
         int write(AudioData* src, uint32_t length) {
+            uint32_t remain = 0;
+            remain = getRbChunkLength() - getRbStoredChunkLength();
             if (openStatus != paNoError) {
                 return -1;
             }
             if (!dataBuf) {
                 return -1;
             }
-            if (getRbStoredChunkLength() < getRbChunkLength()) {
+            if (remain > length) {
                 dataBuf->put_data_memcpy(src, length*nCH/lengthFactor);
                 //dataBuf->put_data_arr_queue(src, length*nCH*lengthFactor);
+            } else {
+                dataBuf->put_data_memcpy(src, remain*nCH/lengthFactor);
             }
             return 0;
         }
@@ -287,8 +293,14 @@ class AudioManipulator {
             if (!dataBuf) {
                 return -1;
             }
-            memcpy(dest, dataBuf->get_data_memcpy(length*nCH/lengthFactor), length*nCH*sizeof(AudioData)/lengthFactor);
-            //memcpy(dest, dataBuf->get_data_nelm_queue(length*nCH), length*nCH*sizeof(AudioData));
+            if (getRbStoredChunkLength() >= length) {
+                memcpy(dest, dataBuf->get_data_memcpy(length*nCH/lengthFactor),
+                             length*nCH*sizeof(AudioData)/lengthFactor);
+                //memcpy(dest, dataBuf->get_data_nelm_queue(length*nCH), length*nCH*sizeof(AudioData));
+            } else {
+                memcpy(dest, dataBuf->get_data_memcpy(getRbStoredChunkLength()*nCH/lengthFactor),
+                             getRbStoredChunkLength()*nCH*sizeof(AudioData)/lengthFactor);
+            }
             return 0;
         }
 
@@ -420,8 +432,7 @@ int rxCallback( const void *input,
     if (reinterpret_cast<AudioManipulator*>(userData)->isStreamPaused()) {
         return 0;
     }
-    reinterpret_cast<AudioManipulator*>(userData)->write(
-        (AudioData*)input, frameCount);
+    reinterpret_cast<AudioManipulator*>(userData)->write((AudioData*)input, frameCount);
     return 0;
 }
 
@@ -435,14 +446,7 @@ int txCallback( const void *input,
     if (reinterpret_cast<AudioManipulator*>(userData)->isStreamPaused()) {
         return 0;
     }
-    if (reinterpret_cast<AudioManipulator*>(userData)->getRbStoredChunkLength() >= frameCount) {
-        reinterpret_cast<AudioManipulator*>(userData)->read(
-            (AudioData*)output, frameCount);
-    } else {
-        reinterpret_cast<AudioManipulator*>(userData)->read(
-            (AudioData*)output,
-            reinterpret_cast<AudioManipulator*>(userData)->getRbStoredChunkLength());
-    }
+    reinterpret_cast<AudioManipulator*>(userData)->read((AudioData*)output, frameCount);
     return 0;
 }
 
