@@ -308,18 +308,21 @@ class AudioManipulator {
                 memcpy(dest, dataBuf->get_data_memcpy(length*nCH/lengthFactor),
                              length*nCH*sizeof(AudioData)/lengthFactor);
                 //memcpy(dest, dataBuf->get_data_nelm_queue(length*nCH), length*nCH*sizeof(AudioData));
-            } else if (remain != 0) {
-                memcpy(dest, dataBuf->get_data_memcpy(remain*nCH/lengthFactor),
-                             remain*nCH*sizeof(AudioData)/lengthFactor);
-            } else {
-                if ((length*nCH) < zdlength) {
-                    memcpy(dest, zerodata,
-                           length*nCH*sizeof(AudioData)/lengthFactor);
-                } else {
-                    memcpy(dest, zerodata,
-                           zdlength*sizeof(AudioData)/lengthFactor);  
-                }
+                return 0;
             }
+            if (remain != 0) {
+                memcpy(dest,
+                       dataBuf->get_data_memcpy(remain*nCH/lengthFactor),
+                       remain*nCH*sizeof(AudioData)/lengthFactor);
+                return 0;
+            }
+            if ((length*nCH) < zdlength) {
+                memcpy(dest, zerodata,
+                       length*nCH*sizeof(AudioData)/lengthFactor);
+                return 0;
+            }
+            memcpy(dest, zerodata,
+                   zdlength*sizeof(AudioData)/lengthFactor);  
             return 0;
         }
 
