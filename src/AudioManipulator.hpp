@@ -98,7 +98,9 @@ class AudioManipulator {
             
             zdlength = chunkLength*channels;
             zerodata = new AudioData[zdlength];
-            std::memset(zerodata, 0, zdlength);
+            for (uint32_t ctr=0; ctr<zdlength; ctr++) {
+                zerodata[ctr].s32 = 0;
+            }
 
             if ((dir.compare("o") == 0) || (dir.compare("O") == 0)) {
                 output = true;
