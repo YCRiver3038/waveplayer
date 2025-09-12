@@ -277,11 +277,6 @@ class AudioManipulator {
                 dataBuf->put_data_memcpy(src, remain*nCH/lengthFactor);
                 return 0;
             }
-            //if ((length*nCH) < zdlength) {
-            //    dataBuf->put_data_memcpy(zerodata, length*nCH/lengthFactor);
-            //    return 0;
-            //}
-            //dataBuf->put_data_memcpy(zerodata, zdlength);
             return 0;
         }
 
@@ -303,7 +298,7 @@ class AudioManipulator {
             return 0;
         }
 
-        int read(AudioData* dest, uint32_t length) {
+        int read(AudioData* dest, uint32_t length, bool zeros=false) {
             uint32_t remain = 0;
             remain = getRbStoredChunkLength();
             if (openStatus != paNoError) {
@@ -311,6 +306,12 @@ class AudioManipulator {
             }
             if (!dataBuf) {
                 return -1;
+            }
+            if (zeros) {
+                for (uint32_t ctr=0; ctr<(length*nCH); ctr++) {
+                    dest[ctr].s32 = 0;
+                }
+                return 0;
             }
             if (remain >= length) {
                 memcpy(dest, dataBuf->get_data_memcpy(length*nCH/lengthFactor),
@@ -330,7 +331,8 @@ class AudioManipulator {
                 return 0;
             }
             memcpy(dest, zerodata,
-                   zdlength*sizeof(AudioData)/lengthFactor);  
+                   zdlength*sizeof(AudioData)/lengthFactor);
+
             return 0;
         }
 
@@ -376,6 +378,58 @@ class AudioManipulator {
                 return -1;
             }
             return dataBuf->get_stored_length() / nCH;
+        }
+        
+        void listInputDevices() {
+            int deviceCount = 0;
+            deviceCount = Pa_GetDeviceCount();
+            for (int ctr = 0; ctr < deviceCount; ctr++) {
+                devInfo = Pa_GetDeviceInfo(ctr);
+                if (devInfo->maxInputChannels > 0) {
+                    inputList.push_back(ctr);
+                }
+            }
+            const PaHostApiInfo* hostAPIInfo = nullptr;
+            printf("\n--- Input List ---\n");
+            for (std::vector<int>::size_type ctr=0; ctr<inputList.size(); ctr++) {
+                devInfo = Pa_GetDeviceInfo(inputList.at(ctr));
+                hostAPIInfo = Pa_GetHostApiInfo(devInfo->hostApi);
+                printf("Index: %d, API:%s, Name: %s\nfs default: %8.0lf[Hz]\n",
+                        inputList.at(ctr), hostAPIInfo->name, devInfo->name, devInfo->defaultSampleRate);
+                printf("max input channels: %d\n", devInfo->maxInputChannels);
+                printf("Input low latency default:  %6.2lf[msec]\n",
+                        (devInfo->defaultLowInputLatency != -1 ?
+                         devInfo->defaultLowInputLatency*1000 : std::nan("1")));
+                printf("Input high latency default: %6.2lf[msec]\n\n",
+                        (devInfo->defaultHighInputLatency != -1 ?
+                         devInfo->defaultHighInputLatency*1000 : std::nan("1")));
+            }
+        }
+
+        void listOutputDevices() {
+            int deviceCount = 0;
+            deviceCount = Pa_GetDeviceCount();
+            for (int ctr = 0; ctr < deviceCount; ctr++) {
+                devInfo = Pa_GetDeviceInfo(ctr);
+                if (devInfo->maxOutputChannels > 0) {
+                    outputList.push_back(ctr);
+                }
+            }
+            const PaHostApiInfo* hostAPIInfo = nullptr;
+            printf("\n--- Output List ---\n");
+            for (std::vector<int>::size_type ctr=0; ctr<outputList.size(); ctr++) {
+                devInfo = Pa_GetDeviceInfo(outputList.at(ctr));
+                hostAPIInfo = Pa_GetHostApiInfo(devInfo->hostApi);
+                printf("Index: %d, API: %s, Name: %s\nfs default: %8.0lf[Hz]\n",
+                        outputList.at(ctr), hostAPIInfo->name, devInfo->name, devInfo->defaultSampleRate);
+                printf("max output channels: %d\n", devInfo->maxOutputChannels);
+                printf("Output low latency default:  %6.2lf[msec]\n",
+                        (devInfo->defaultLowInputLatency != -1 ?
+                         devInfo->defaultLowInputLatency*1000 : std::nan("1")));
+                printf("Output high latency default: %6.2lf[msec]\n\n",
+                        (devInfo->defaultHighInputLatency != -1 ?
+                         devInfo->defaultHighInputLatency*1000 : std::nan("1")));
+            }  
         }
     
         void listDevices() {
@@ -474,6 +528,7 @@ int txCallback( const void *input,
                 void *userData ) {
     reinterpret_cast<AudioManipulator*>(userData)->storeTxCbFrameCount(frameCount);
     if (reinterpret_cast<AudioManipulator*>(userData)->isStreamPaused()) {
+        reinterpret_cast<AudioManipulator*>(userData)->read((AudioData*)output, frameCount, true);
         return 0;
     }
     reinterpret_cast<AudioManipulator*>(userData)->read((AudioData*)output, frameCount);
