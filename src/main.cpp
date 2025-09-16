@@ -425,6 +425,7 @@ int main(int argc, char* argv[]) {
                 delete curWF;
                 playedFileCount = 0;
                 curWF = new GaplessLooper(paths.at(playedFileCount), verbose);
+                printf("\nFile: %s\n\n\n\n", paths.at(playedFileCount).c_str());
             }
         }
     }
